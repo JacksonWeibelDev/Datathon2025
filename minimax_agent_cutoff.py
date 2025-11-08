@@ -1,5 +1,7 @@
 
 import os
+import sys
+from contextlib import contextmanager
 import time
 from flask import Flask, request, jsonify
 from threading import Lock
@@ -21,10 +23,24 @@ LAST_POSTED_STATE = {}
 game_lock = Lock()
 
 # ---- Search configuration (env-tunable) ----
-MAX_DEPTH = int(os.getenv("DEPTH", "3"))
-NODE_BUDGET = int(os.getenv("NODE_BUDGET", "9000"))
-TIME_BUDGET_MS = int(os.getenv("TIME_BUDGET_MS", "45"))
+MAX_DEPTH = int(os.getenv("DEPTH", "160"))
+NODE_BUDGET = int(os.getenv("NODE_BUDGET", "1600000"))
+TIME_BUDGET_MS = int(os.getenv("TIME_BUDGET_MS", "450"))
 ENABLE_BOOST = os.getenv("ENABLE_BOOST", "1") != "0"
+
+# Suppress stdout during internal simulations to avoid game prints
+@contextmanager
+def suppress_stdout():
+    saved = sys.stdout
+    try:
+        sys.stdout = open(os.devnull, "w")
+        yield
+    finally:
+        try:
+            sys.stdout.close()
+        except Exception:
+            pass
+        sys.stdout = saved
 
 # Territory‑denial heuristic weights
 OP_SPACE_W   = float(os.getenv("OP_SPACE_W", "6.0"))   # maximize -opponent space (primary goal)
@@ -235,10 +251,11 @@ def minimax(game: Game, depth: int, alpha: float, beta: float, ctx: SearchContex
         worst = 1e18
         for d_op, b_op in op_actions:
             g2 = clone_game(game)
-            res = g2.step(d_me if ctx.me == 1 else d_op,
-                          d_op if ctx.me == 1 else d_me,
-                          b_me if ctx.me == 1 else b_op,
-                          b_op if ctx.me == 1 else b_me)
+            with suppress_stdout():
+                res = g2.step(d_me if ctx.me == 1 else d_op,
+                              d_op if ctx.me == 1 else d_me,
+                              b_me if ctx.me == 1 else b_op,
+                              b_op if ctx.me == 1 else b_me)
             if res is not None:
                 if res == GameResult.DRAW: val = 0.0
                 elif (res == GameResult.AGENT1_WIN and ctx.me == 1) or (res == GameResult.AGENT2_WIN and ctx.me == 2): val = 1e6
@@ -272,6 +289,7 @@ def choose_move(game: Game, player_number: int) -> str:
         fallback = (me.direction, False)
 
     best_action = fallback
+    best_estimate_val = None  # track our current evaluation from deepest completed search
 
     for depth in range(1, MAX_DEPTH+1):
         local_best = None
@@ -299,10 +317,11 @@ def choose_move(game: Game, player_number: int) -> str:
             worst = 1e18
             for d_op, b_op in op_actions:
                 g3 = clone_game(g2)
-                res = g3.step(d_me if player_number == 1 else d_op,
-                              d_op if player_number == 1 else d_me,
-                              b_me if player_number == 1 else b_op,
-                              b_op if player_number == 1 else b_me)
+                with suppress_stdout():
+                    res = g3.step(d_me if player_number == 1 else d_op,
+                                  d_op if player_number == 1 else d_me,
+                                  b_me if player_number == 1 else b_op,
+                                  b_op if player_number == 1 else b_me)
                 if res is not None:
                     if res == GameResult.DRAW: val = 0.0
                     elif (res == GameResult.AGENT1_WIN and player_number == 1) or (res == GameResult.AGENT2_WIN and player_number == 2): val = 1e6
@@ -323,9 +342,17 @@ def choose_move(game: Game, player_number: int) -> str:
 
         if local_best is not None:
             best_action = local_best
+            best_estimate_val = local_best_val
         if over_budget(ctx): break
 
     d, use_boost = best_action
+    # Print a single belief line if current search suggests we are losing
+    try:
+        belief_val = best_estimate_val if best_estimate_val is not None else evaluate(game, player_number)
+        if belief_val < 0:
+            print(f"{AGENT_NAME}: believes losing state (player {player_number}, score={belief_val:.2f})")
+    except Exception:
+        pass
     return f"{d.name}:BOOST" if use_boost else d.name
 
 # ------------- HTTP endpoints (judge protocol) -------------
@@ -381,6 +408,6 @@ def end_game():
     return jsonify({"status": "acknowledged"}), 200
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", "5008"))
+    port = int(os.environ.get("PORT", "5009"))
     print(f"Starting {AGENT_NAME} ({PARTICIPANT}) on port {port}...")
     app.run(host="0.0.0.0", port=port, debug=False)

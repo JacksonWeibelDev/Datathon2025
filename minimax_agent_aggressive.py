@@ -1,5 +1,7 @@
 
 import os
+import sys
+from contextlib import contextmanager
 import time
 from flask import Flask, request, jsonify
 from threading import Lock
@@ -25,6 +27,20 @@ MAX_DEPTH = int(os.getenv("DEPTH", "3"))
 NODE_BUDGET = int(os.getenv("NODE_BUDGET", "9000"))
 TIME_BUDGET_MS = int(os.getenv("TIME_BUDGET_MS", "45"))
 ENABLE_BOOST = os.getenv("ENABLE_BOOST", "1") != "0"
+
+# Suppress stdout during internal simulations to avoid game prints
+@contextmanager
+def suppress_stdout():
+    saved = sys.stdout
+    try:
+        sys.stdout = open(os.devnull, "w")
+        yield
+    finally:
+        try:
+            sys.stdout.close()
+        except Exception:
+            pass
+        sys.stdout = saved
 
 # Aggression knobs
 VORONOI_WEIGHT = float(os.getenv("VORONOI_W", "6.0"))
@@ -228,7 +244,8 @@ def minimax(game: Game, depth: int, alpha: float, beta: float, ctx: SearchContex
         worst = 1e18
         for d_op, b_op in op_actions:
             g2 = clone_game(game)
-            res = g2.step(d_me if ctx.me == 1 else d_op,
+            with suppress_stdout():
+                res = g2.step(d_me if ctx.me == 1 else d_op,
                           d_op if ctx.me == 1 else d_me,
                           b_me if ctx.me == 1 else b_op,
                           b_op if ctx.me == 1 else b_me)
@@ -299,7 +316,8 @@ def choose_move(game: Game, player_number: int) -> str:
             worst = 1e18; alpha = -1e18; beta = 1e18
             for d_op, b_op in op_actions:
                 g3 = clone_game(g2)
-                res = g3.step(d_me if player_number == 1 else d_op,
+                with suppress_stdout():
+                    res = g3.step(d_me if player_number == 1 else d_op,
                               d_op if player_number == 1 else d_me,
                               b_me if player_number == 1 else b_op,
                               b_op if player_number == 1 else b_me)
