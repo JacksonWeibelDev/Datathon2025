@@ -313,6 +313,6 @@ def end_game():
     return jsonify({"status": "acknowledged"}), 200
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", "5008"))
+    port = int(os.environ.get("PORT", "5009"))
     print(f"Starting {AGENT_NAME} ({PARTICIPANT}) on port {port}...")
     app.run(host="0.0.0.0", port=port, debug=False)
