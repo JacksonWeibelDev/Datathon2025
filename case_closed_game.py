@@ -18,6 +18,20 @@ class GameBoard:
         self.height = height
         self.width = width
         self.grid = [[EMPTY for _ in range(width)] for _ in range(height)]
+        self.game = self
+
+    
+    def get_agent_symbol(self, x, y, agent1, agent2):
+        pos = (x, y)
+        if agent1.is_head(pos):
+            return 'H'
+        if agent2.is_head(pos):
+            return 'H'
+        if pos in agent1.trail:
+            return 'A'
+        if pos in agent2.trail:
+            return 'B'
+        return '.'
 
     def _torus_check(self, position: tuple[int, int]) -> tuple[int, int]:
         x, y = position
@@ -46,13 +60,33 @@ class GameBoard:
         return random.choice(empty_cells)
 
     def __str__(self) -> str:
-        chars = {EMPTY: '.', AGENT: 'A'}
+        RESET = "\033[0m"
+        RED = "\033[91m"
+        BLUE = "\033[94m"
+        GREEN = "\033[92m"
+
         board_str = ""
+        a1 = self.game.agent1
+        a2 = self.game.agent2
+
         for y in range(self.height):
             for x in range(self.width):
-                board_str += chars.get(self.grid[y][x], '?') + ' '
+                pos = (x, y)
+                if a1.is_head(pos):
+                    char = f"{GREEN}H{RESET}"
+                elif a2.is_head(pos):
+                    char = f"{GREEN}H{RESET}"
+                elif pos in a1.trail:
+                    char = f"{RED}A{RESET}"
+                elif pos in a2.trail:
+                    char = f"{BLUE}B{RESET}"
+                else:
+                    char = '.'
+                board_str += char + ' '
             board_str += '\n'
         return board_str
+
+
 
 
 UP = (0, -1)
@@ -168,6 +202,7 @@ class Agent:
 class Game:
     def __init__(self):
         self.board = GameBoard()
+        self.board.game = self
         self.agent1 = Agent(agent_id=1, start_pos=(1, 2), start_dir=Direction.RIGHT, board=self.board)
         self.agent2 = Agent(agent_id=2, start_pos=(17, 15), start_dir=Direction.LEFT, board=self.board)
         self.turns = 0
@@ -175,6 +210,7 @@ class Game:
     def reset(self):
         """Resets the game to the initial state."""
         self.board = GameBoard()
+        self.board.game = self
         self.agent1 = Agent(agent_id=1, start_pos=(1, 2), start_dir=Direction.RIGHT, board=self.board)
         self.agent2 = Agent(agent_id=2, start_pos=(17, 15), start_dir=Direction.LEFT, board=self.board)
         self.turns = 0
