@@ -18,7 +18,7 @@ class RandomPlayer:
         possible_moves = self.get_possible_moves()
         return random.choice(possible_moves)
 
-TIMEOUT = .1  # time for each move
+TIMEOUT = .5  # time for each move
 
 class PlayerAgent:
     def __init__(self, participant, agent_name):
