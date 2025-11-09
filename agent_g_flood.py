@@ -17,8 +17,8 @@ GLOBAL_GAME = Game()
 LAST_POSTED_STATE = {}
 game_lock = Lock()
 
-PARTICIPANT = "ParticipantX"
-AGENT_NAME = "AgentX"
+PARTICIPANT = "TaoistDisciple67"
+AGENT_NAME = "TurtleFromation"
 
 
 @app.route("/", methods=["GET"])
@@ -242,10 +242,11 @@ def send_move():
                 continue
             visited.add((x, y))
             for dx, dy in move_offsets.values():
-                nx, ny = x + dx, y + dy
-                if 0 <= nx < board.width and 0 <= ny < board.height:
-                    if (nx, ny) not in visited and (nx, ny) not in blocked:
-                        q.append((nx, ny))
+                nx = (x + dx) % board.width
+                ny = (y + dy) % board.height
+                if (nx, ny) not in visited and (nx, ny) not in blocked:
+                    q.append((nx, ny))
+
         area_size = len(visited)
 
         # Cache all visited points with same area result
@@ -335,5 +336,5 @@ def end_game():
 
 # ------------------- Run Server -------------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", "5008"))
+    port = int(os.environ.get("PORT", "5009"))
     app.run(host="0.0.0.0", port=port, debug=True)
