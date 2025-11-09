@@ -77,9 +77,9 @@ class GameBoard:
                 elif a2.is_head(pos):
                     char = f"{GREEN}H{RESET}"
                 elif pos in a1.trail:
-                    char = f"{RED}A{RESET}"
+                    char = f"{RED}□{RESET}"
                 elif pos in a2.trail:
-                    char = f"{BLUE}B{RESET}"
+                    char = f"{BLUE}□{RESET}"
                 else:
                     char = '.'
                 board_str += char + ' '

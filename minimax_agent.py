@@ -25,7 +25,7 @@ game_lock = Lock()
 # ---- Minimax configuration (env-tunable) ----
 MAX_DEPTH = int(os.getenv("DEPTH", "160"))
 NODE_BUDGET = int(os.getenv("NODE_BUDGET", "160000"))
-TIME_BUDGET_MS = int(os.getenv("TIME_BUDGET_MS", "450"))
+TIME_BUDGET_MS = int(os.getenv("TIME_BUDGET_MS", "3600"))
 ENABLE_BOOST = os.getenv("ENABLE_BOOST", "1") != "0"
 
 # Suppress stdout during internal simulations to avoid game prints
