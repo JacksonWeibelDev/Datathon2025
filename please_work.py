@@ -352,13 +352,45 @@ def choose_weighted6(player_number, state):
         return {"move": DIR2S[my_dir]}  # fallback
 
     # For each first action, evaluate worst-case value at depth up to 6 ply
-    depth = 6 if dl.time_left() > 1.6 else (5 if dl.time_left() > 1.0 else 4)
+    depth = 10 if dl.time_left() > 1.6 else (6 if dl.time_left() > 1.0 else 3)
     weights = []
     tt = {}
 
-    # Opponent could also be far: limit deep search to relevant head distances
-    if torus_dist(head, opphead, W, H) > 8:
-        depth = min(depth, 4)
+    # If opponent is far, chase rapidly toward them; switch to search once within 5 tiles
+    if torus_dist(head, opphead, W, H) > 5:
+        best = None
+        best_score = None
+        dist0 = torus_dist(head, opphead, W, H)
+        # Precompute opponent candidate replies on current board
+        opp_acts = gen_opp_actions(opphead, opp_dir, opp_boosts, occupied, W, H)
+        for d, boost, path in first_acts:
+            head_after = path[-1]
+            nb = apply_paths(occupied, path, [])
+            # Avoid immediate self-trap (no replies after our move)
+            if not has_reply(head_after, nb, W, H):
+                continue
+            # Safety: if there exists ANY opponent reply that kills us this turn, discard this action
+            unsafe = False
+            for d2, opp_boost, opp_path in opp_acts:
+                if path_collision_us_die(path, opp_path):
+                    unsafe = True; break
+            if unsafe:
+                continue
+            # Strongly favor actions that reduce distance quickly to get within 5 ASAP
+            d_after = torus_dist(head_after, opphead, W, H)
+            improvement = dist0 - d_after
+            score = improvement * 100.0 - d_after  # amplify closeness pressure
+            # Prefer boost when equally scored
+            if (best is None or score > best_score or
+                (score == best_score and boost and not best[1])):
+                best = (d, boost, path)
+                best_score = score
+        if best is not None:
+            bd, bboost, _ = best
+            move = DIR2S[bd]
+            if bboost:
+                move += ":BOOST"
+            return {"move": move}
 
     # Order our first actions quickly to spend time on promising ones
     first_acts = order_my(first_acts, head, occupied, W, H, dl)
