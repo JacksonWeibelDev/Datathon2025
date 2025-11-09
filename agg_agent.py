@@ -315,8 +315,8 @@ def choose_bully_move(player_number, state):
         # Distance weight ramp
         CLOSE_R = 5
         FAR_R   = 8
-        W_MIN   = 0.1
-        W_MAX   = 1.0
+        W_MIN   = -1.0
+        W_MAX   = 2.0
         def dist_weight(d_now):
             if d_now <= CLOSE_R: return W_MIN
             if d_now >= FAR_R:   return W_MAX
@@ -480,5 +480,5 @@ def end_game():
     return jsonify({"status": "acknowledged"}), 200
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", "5009"))
+    port = int(os.environ.get("PORT", "5008"))
     app.run(host="0.0.0.0", port=port, debug=True)
