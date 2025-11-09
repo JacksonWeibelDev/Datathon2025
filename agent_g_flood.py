@@ -228,6 +228,14 @@ def send_move():
         from collections import deque
         q = deque([start])
         visited = set()
+        # Cache for known connected components to avoid re-scanning
+        if not hasattr(flood_fill_area, "_cache"):
+            flood_fill_area._cache = {}
+        cache = flood_fill_area._cache
+
+        # Early exit if this start is in a previously computed region
+        if start in cache:
+            return cache[start]
         while q:
             x, y = q.popleft()
             if (x, y) in visited or (x, y) in blocked:
@@ -238,7 +246,13 @@ def send_move():
                 if 0 <= nx < board.width and 0 <= ny < board.height:
                     if (nx, ny) not in visited and (nx, ny) not in blocked:
                         q.append((nx, ny))
-        return len(visited)
+        area_size = len(visited)
+
+        # Cache all visited points with same area result
+        for cell in visited:
+            cache[cell] = area_size
+
+        return area_size
 
     def is_blocked(board, pos, blocked):
         x, y = pos
@@ -262,17 +276,38 @@ def send_move():
         blocked_cells = set(local_game.agent1.trail + local_game.agent2.trail)
         opp_pos = (head[0] + ox, head[1] + oy)
         if is_blocked(local_game.board, opp_pos, blocked_cells):
-            if came_from in ("LEFT", "RIGHT"):
-                check_dirs = ["UP", "DOWN"]
-            else:
-                check_dirs = ["LEFT", "RIGHT"]
-
             print(f"[DEBUG] Backward ({opposite_dir}) blocked at {opp_pos}")
+
+            # Determine correct perpendicular options based on where we came from
+            # e.g., if we came from UP, backward is DOWN → check LEFT and RIGHT
+            if came_from == "UP":
+                check_dirs = ["LEFT", "RIGHT", "UP"]
+            elif came_from == "DOWN":
+                check_dirs = ["LEFT", "RIGHT", "DOWN"]
+            elif came_from == "LEFT":
+                check_dirs = ["UP", "DOWN", "LEFT"]
+            elif came_from == "RIGHT":
+                check_dirs = ["UP", "DOWN", "RIGHT"]
+            else:
+                check_dirs = ["UP", "DOWN", "LEFT", "RIGHT"]
+
+            print(f"[DEBUG] Came from {came_from}, backward {opposite_dir} blocked; "
+                  f"checking perpendiculars {check_dirs}")
+
+            # Evaluate each direction
+            flood_results = {}
             for d in check_dirs:
                 dx, dy = move_offsets[d]
                 test_pos = (head[0] + dx, head[1] + dy)
                 area = flood_fill_area(local_game.board, test_pos, blocked_cells)
+                flood_results[d] = area
                 print(f"[DEBUG] Flood-fill area if moving {d}: {area}")
+
+            # Pick direction with largest reachable area
+            if flood_results:
+                best_dir = max(flood_results, key=flood_results.get)
+                print(f"[DEBUG] Choosing {best_dir} (larger open area: {flood_results[best_dir]})")
+                move = best_dir
             # --- Choose direction with larger flood-fill area ---
             areas = {}
             for d in check_dirs:
